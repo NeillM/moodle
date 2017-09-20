@@ -2063,12 +2063,35 @@ function quiz_add_quiz_question($questionid, $quiz, $page = 0, $maxmark = null) 
         $slot->slot = $lastslotbefore + 1;
         $slot->page = min($page, $maxpage + 1);
 
-        $DB->execute("
-                UPDATE {quiz_sections}
-                   SET firstslot = firstslot + 1
-                 WHERE quizid = ?
-                   AND firstslot > ?
-                ", array($quiz->id, max($lastslotbefore, 1)));
+        // First we give the slots we need to reorder the negative
+        // of their new firstslot value.
+        $update1 = "UPDATE {quiz_sections}
+                       SET firstslot = (firstslot + 1) * -1
+                     WHERE quizid = :quiz AND firstslot > :slot";
+        $update1params = array(
+            'quiz' => $quiz->id,
+            'slot' => max($lastslotbefore, 1),
+        );
+        $DB->execute($update1, $update1params);
+
+        // We then set the negative values to to the value we want.
+        // This avoids the duplicate keys and ensures that there are
+        // number of queries needed to do this are constant.
+        //
+        // Since we do this inside a transaction and all the supported databases
+        // since Moodle 2.9 are intended to use a database engine that supports
+        // transactions it should be impossible for other users editing or viewing
+        // this page to see the interim stage where a firstslot value is negative.
+        //
+        // If we still had to support non-transactional database engines we could
+        // refactor to get a list of sections in the quiz ordered by firstslot DESC
+        // then simply loop through them sequentially doing a set_field call on each.
+        // This method would scale less well with the number of sections as the number
+        // of database calls would increase linearly as the number of sections increased.
+        $update2 = "UPDATE {quiz_sections}
+                       SET firstslot = firstslot * -1
+                     WHERE quizid = ? AND firstslot < 0";
+        $DB->execute($update2, array($quiz->id));
 
     } else {
         $lastslot = end($slots);
