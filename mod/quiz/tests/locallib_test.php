@@ -152,4 +152,75 @@ class mod_quiz_locallib_testcase extends advanced_testcase {
         $completiondata = $completion->get_data($cm);
         $this->assertEquals(1, $completiondata->completionstate);
     }
+
+    /**
+     * Tests that adding questions to a quiz results in them being given the correct slot number.
+     */
+    public function test_quiz_add_quiz_question() {
+        global $DB;
+        $this->resetAfterTest(true);
+        // Get generators.
+        $quizgenerator = $this->getDataGenerator()->get_plugin_generator('mod_quiz');
+        $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        // Course and question category for the quiz.
+        $course = $this->getDataGenerator()->create_course();
+        $category = $questiongenerator->create_question_category();
+        // Create the quiz.
+        $quizparams = array(
+            'course' => $course->id,
+            'questionsperpage' => 1, // Questions per page set to 1 so that we can create 3 sections later.
+            'grade' => 100.0,
+            'sumgrades' => 2,
+            'preferredbehaviour' => 'immediatefeedback',
+        );
+        $quiz = $quizgenerator->create_instance($quizparams);
+        // Create 3 questions and add them to the quiz.
+        $question1params = array(
+            'name' => 'Question 1',
+            'category' => $category->id
+        );
+        $question1 = $questiongenerator->create_question('truefalse', null, $question1params);
+        // Add question 1 to the default slot.
+        quiz_add_quiz_question($question1->id, $quiz);
+        $this->assertEquals(1, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question1->id)));
+        $question2params = array(
+            'name' => 'Question 2',
+            'category' => $category->id
+        );
+        $question2 = $questiongenerator->create_question('truefalse', null, $question2params);
+        // Add question 2 to the default slot.
+        quiz_add_quiz_question($question2->id, $quiz);
+        $this->assertEquals(1, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question1->id)));
+        $this->assertEquals(2, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question2->id)));
+        $question3params = array(
+            'name' => 'Question 3',
+            'category' => $category->id
+        );
+        $question3 = $questiongenerator->create_question('truefalse', null, $question3params);
+        // Add question 3 to page 3.
+        quiz_add_quiz_question($question3->id, $quiz, 3);
+        $this->assertEquals(1, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question1->id)));
+        $this->assertEquals(2, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question2->id)));
+        $this->assertEquals(3, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question3->id)));
+        // Setup the 3 sections in the quiz, each will contain one question.
+        $cm = get_coursemodule_from_instance('quiz', $quiz->id, $course->id);
+        $quizobj = new quiz($quiz, $cm, $course);
+        $structure = \mod_quiz\structure::create_for_quiz($quizobj);
+        $sections = $structure->get_sections();
+        $firstsection = reset($sections);
+        $structure->set_section_heading($firstsection->id, 'Section 1');
+        $structure->add_section_heading(2, 'Section 2');
+        $structure->add_section_heading(3, 'Section 3');
+        // Adding this question to slot 1 would have caused an error before the fix for MDL-57228.
+        $question4params = array(
+            'name' => 'Question 4',
+            'category' => $category->id
+        );
+        $question4 = $questiongenerator->create_question('truefalse', null, $question4params);
+        quiz_add_quiz_question($question4->id, $quiz, 1);
+        $this->assertEquals(1, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question1->id)));
+        $this->assertEquals(3, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question2->id)));
+        $this->assertEquals(4, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question3->id)));
+        $this->assertEquals(2, $DB->get_field('quiz_slots', 'slot',array('quizid' => $quiz->id, 'questionid' => $question4->id)));
+    }
 }
