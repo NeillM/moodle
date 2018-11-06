@@ -14,6 +14,10 @@ This files describes API changes in the assign code.
       'filearea' => ASSIGNFEEDBACK_XYZ_FILEAREA,
       'itemid' => $grade->id
   ]
+* The following events now extend \core\event\course_module_viewed rather than\mod_assign\event\base:
+  - grading_table_viewed
+  - submission_form_viewed
+  - submission_status_viewed
 
 === 3.5 ===
 * Functions assign:get_assign_grading_summary_renderable, assign:can_view_submission, assign:count_submissions_with_status,

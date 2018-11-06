@@ -48,7 +48,7 @@ class observer {
 
     /**
      * Queue the submission for processing.
-     * @param \mod_assign\event\base $event The submission created/updated event.
+     * @param \core\event\base $event The submission created/updated event.
      */
     protected static function queue_conversion($event) {
         global $DB;

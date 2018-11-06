@@ -40,7 +40,9 @@ defined('MOODLE_INTERNAL') || die();
  * @copyright  2014 Mark Nelson <markn@moodle.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class submission_status_viewed extends base {
+class submission_status_viewed extends \core\event\course_module_viewed {
+    use common;
+
     /**
      * Flag for prevention of direct create() call.
      * @var bool
@@ -54,11 +56,13 @@ class submission_status_viewed extends base {
      * @return submission_status_viewed
      */
     public static function create_from_assign(\assign $assign) {
+        $id = $assign->get_instance()->id;
         $data = array(
             'context' => $assign->get_context(),
             'other' => array(
-                'assignid' => $assign->get_instance()->id,
+                'assignid' => $id,
             ),
+            'objectid' => $id,
         );
         self::$preventcreatecall = false;
         /** @var submission_status_viewed $event */
@@ -76,6 +80,7 @@ class submission_status_viewed extends base {
     protected function init() {
         $this->data['crud'] = 'r';
         $this->data['edulevel'] = self::LEVEL_OTHER;
+        $this->data['objecttable'] = 'assign';
     }
 
     /**
@@ -104,7 +109,7 @@ class submission_status_viewed extends base {
      */
     protected function get_legacy_logdata() {
         $this->set_legacy_logdata('view', get_string('viewownsubmissionstatus', 'assign'));
-        return parent::get_legacy_logdata();
+        return $this->legacylogdata;
     }
 
     /**

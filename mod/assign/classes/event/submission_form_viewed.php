@@ -40,7 +40,9 @@ defined('MOODLE_INTERNAL') || die();
  * @copyright  2014 Mark Nelson <markn@moodle.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class submission_form_viewed extends base {
+class submission_form_viewed extends \core\event\course_module_viewed {
+    use common;
+
     /**
      * Flag for prevention of direct create() call.
      * @var bool
@@ -55,12 +57,14 @@ class submission_form_viewed extends base {
      * @return submission_form_viewed
      */
     public static function create_from_user(\assign $assign, \stdClass $user) {
+        $id = $assign->get_instance()->id;
         $data = array(
             'relateduserid' => $user->id,
             'context' => $assign->get_context(),
             'other' => array(
-                'assignid' => $assign->get_instance()->id,
+                'assignid' => $id,
             ),
+            'objectid' => $id,
         );
         self::$preventcreatecall = false;
         /** @var submission_form_viewed $event */
@@ -77,6 +81,7 @@ class submission_form_viewed extends base {
     protected function init() {
         $this->data['crud'] = 'r';
         $this->data['edulevel'] = self::LEVEL_OTHER;
+        $this->data['objecttable'] = 'assign';
     }
 
     /**
@@ -116,7 +121,7 @@ class submission_form_viewed extends base {
             $title = get_string('editsubmissionother', 'assign', fullname($user));
         }
         $this->set_legacy_logdata('view submit assignment form', $title);
-        return parent::get_legacy_logdata();
+        return $this->legacylogdata;
     }
 
     /**
