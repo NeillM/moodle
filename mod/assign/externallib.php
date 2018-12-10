@@ -2368,7 +2368,8 @@ class mod_assign_external extends external_api {
         }
 
         // Retrieve the rest of the renderable objects.
-        if (has_capability('mod/assign:submit', $assign->get_context(), $user)) {
+        $cansubmit = has_capability('mod/assign:submit', $context, $user, false);
+        if ($cansubmit || $assign->get_user_submission($user->id, false) !== false) {
             $lastattempt = $assign->get_assign_submission_status_renderable($user, true);
         }
 
@@ -2424,7 +2425,7 @@ class mod_assign_external extends external_api {
             }
 
             // Can edit its own submission?
-            $lastattempt->caneditowner = $assign->submissions_open($user->id) && $assign->is_any_submission_plugin_enabled();
+            $lastattempt->caneditowner = $cansubmit && $assign->submissions_open($user->id) && $assign->is_any_submission_plugin_enabled();
 
             $result['lastattempt'] = $lastattempt;
         }
