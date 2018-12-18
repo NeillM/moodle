@@ -1582,7 +1582,10 @@ class coursecat implements renderable, cacheable_object, IteratorAggregate {
                 }
                 // Prepare the list of course_in_list objects.
                 foreach ($ids as $id) {
-                    $courses[$id] = new course_in_list($records[$id]);
+                    // If the course is being deleted the cache may not have been cleared, but the record for the course deleted.
+                    if (!empty($records[$id])) {
+                        $courses[$id] = new course_in_list($records[$id]);
+                    }
                 }
             }
             return $courses;
