@@ -5142,6 +5142,7 @@ function remove_course_contents($courseid, $showfeedback = true, array $options 
                         // Delete cm and its context - orphaned contexts are purged in cron in case of any race condition.
                         context_helper::delete_instance(CONTEXT_MODULE, $cm->id);
                         $DB->delete_records('course_modules', array('id' => $cm->id));
+                        rebuild_course_cache($cm->course, true);
                     }
                 }
             }
@@ -5178,6 +5179,7 @@ function remove_course_contents($courseid, $showfeedback = true, array $options 
         }
         context_helper::delete_instance(CONTEXT_MODULE, $cm->id);
         $DB->delete_records('course_modules', array('id' => $cm->id));
+        rebuild_course_cache($cm->course, true);
     }
 
     if ($showfeedback) {
