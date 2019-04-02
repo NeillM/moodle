@@ -2021,6 +2021,38 @@ class assign {
     }
 
     /**
+     * Returns array with sql code and parameters returning all ids of users who have submitted an assignment.
+     *
+     * @return array list($sql, $params)
+     */
+    protected function get_submitted_sql() {
+        // We need to guarentee unique table names.
+        static $i = 0;
+        $i++;
+        $prefix = 'sa' . $i . '_';
+        $params = [
+            "{$prefix}assignment" => (int) $this->get_instance()->id,
+            "{$prefix}status" => ASSIGN_SUBMISSION_STATUS_NEW,
+        ];
+        if ($this->show_only_active_users()) {
+            $capjoin = get_enrolled_with_capabilities_join($this->context, $prefix, '', 0, true);
+            $joins = $capjoin->joins;
+            $wheres = "AND $capjoin->wheres";
+            $params += $capjoin->params;
+        } else {
+            $joins = '';
+            $wheres = '';
+        }
+        $sql = "SELECT {$prefix}s.userid
+                  FROM {assign_submission} {$prefix}s
+                  JOIN {user} {$prefix}u ON {$prefix}u.id = {$prefix}s.userid
+                  $joins
+                 WHERE {$prefix}s.assignment = :{$prefix}assignment
+                   AND {$prefix}s.status <> :{$prefix}status $wheres";
+        return array($sql, $params);
+    }
+
+    /**
      * Load a list of users enrolled in the current course with the specified permission and group.
      * 0 for no group.
      * Apply any current sort filters from the grading table.
@@ -2042,6 +2074,8 @@ class assign {
         if (!isset($this->participants[$key])) {
             list($esql, $params) = get_enrolled_sql($this->context, 'mod/assign:submit', $currentgroup,
                     $this->show_only_active_users());
+            list($ssql, $sparams) = $this->get_submitted_sql();
+            $params += $sparams;
 
             $fields = 'u.*';
             $orderby = 'u.lastname, u.firstname, u.id';
@@ -2088,7 +2122,7 @@ class assign {
 
             $sql = "SELECT $fields
                       FROM {user} u
-                      JOIN ($esql) je ON je.id = u.id
+                      JOIN ($esql UNION $ssql) je ON je.id = u.id
                            $additionaljoins
                      WHERE u.deleted = 0
                            $additionalfilters
