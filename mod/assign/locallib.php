@@ -2180,7 +2180,8 @@ class assign {
             return null;
         }
 
-        if (!is_enrolled($this->context, $participant, 'mod/assign:submit', $this->show_only_active_users())) {
+        $enrolled = is_enrolled($this->context, $participant, 'mod/assign:submit', $this->show_only_active_users());
+        if (!$enrolled && !$this->has_unenroled_submission($USER->id)) {
             return null;
         }
 
@@ -4820,10 +4821,15 @@ class assign {
         if (!$this->is_active_user($userid) && !has_capability('moodle/course:viewsuspendedusers', $this->context)) {
             return false;
         }
+        $cangrade = has_any_capability(array('mod/assign:viewgrades', 'mod/assign:grade'), $this->context);
         if (!is_enrolled($this->get_course_context(), $userid)) {
+            if ($cangrade && $this->has_unenrolled_submission($userid)) {
+                // If the user has a submission someone who can grade should be able to see it.
+                return true;
+            }
             return false;
         }
-        if (has_any_capability(array('mod/assign:viewgrades', 'mod/assign:grade'), $this->context)) {
+        if ($cangrade) {
             return true;
         }
         if ($userid == $USER->id) {
@@ -7405,6 +7411,10 @@ class assign {
      */
     public function grading_disabled($userid, $checkworkflow=true) {
         global $CFG;
+        if ($this->has_unenrolled_submission($userid)) {
+            // The user is not enrolled.
+            return true;
+        }
         if ($checkworkflow && $this->get_instance()->markingworkflow) {
             $grade = $this->get_user_grade($userid, false);
             $validstates = $this->get_marking_workflow_states_for_current_user();
@@ -8896,6 +8906,33 @@ class assign {
             }
         }
         return $this->showonlyactiveenrol;
+    }
+
+    /**
+     * Checks if the user has a submission without an enrolment.
+     *
+     * @return array
+     */
+    public function has_unenrolled_submission($userid) {
+        global $DB;
+        $assignid = $this->get_instance()->id;
+        $cache = cache::make('mod_assign', 'unenrolled_submission');
+        $users = $cache->get($assignid);
+        if ($users === false) {
+            $params = [
+                'assignment' => (int) $assignid,
+                'status' => ASSIGN_SUBMISSION_STATUS_NEW,
+            ];
+            list($esql, $eparams) = get_enrolled_sql($this->context);
+            $sql = "SELECT s.userid
+                      FROM {assign_submission} s
+                     WHERE s.assignment = :assignment
+                       AND s.status <> :status
+                       AND s.userid NOT IN ($esql)";
+            $users = $DB->get_fieldset_sql($sql, $params + $eparams);
+            $cache->set($assignid, $users);
+        }
+        return in_array($userid, $users);
     }
 
     /**

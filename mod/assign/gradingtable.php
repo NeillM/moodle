@@ -835,7 +835,11 @@ class assign_grading_table extends table_sql implements renderable {
      * @return string
      */
     public function col_fullname($row) {
-        if (!$this->is_downloading()) {
+        if ($this->assignment->has_unenrolled_submission($row->id)) {
+            $notenrolledstring = get_string('usernotenrolled', 'mod_assign');
+            $fullname = $this->assignment->fullname($row) . ' ' . $this->output->pix_icon('i/warning', $notenrolledstring);
+            $fullname = html_writer::tag('span', $fullname, array('class' => 'usersuspended'));
+        } else if (!$this->is_downloading()) {
             $courseid = $this->assignment->get_course()->id;
             $link = new moodle_url('/user/view.php', array('id' => $row->id, 'course' => $courseid));
             $fullname = $this->output->action_link($link, $this->assignment->fullname($row));
@@ -945,9 +949,11 @@ class assign_grading_table extends table_sql implements renderable {
                 $urlparams['userid'] = $row->userid;
             }
 
-            $url = new moodle_url('/mod/assign/view.php', $urlparams);
-            $link = '<a href="' . $url . '" class="btn btn-primary">' . get_string('grade') . '</a>';
-            $grade .= $link . $separator;
+            if (!$gradingdisabled) {
+                $url = new moodle_url('/mod/assign/view.php', $urlparams);
+                $link = '<a href="' . $url . '" class="btn btn-primary">' . get_string('grade') . '</a>';
+                $grade .= $link . $separator;
+            }
         }
 
         $grade .= $this->display_grade($row->grade,
@@ -1168,6 +1174,11 @@ class assign_grading_table extends table_sql implements renderable {
      */
     public function col_userid(stdClass $row) {
         global $USER;
+
+        if ($this->assignment->has_unenrolled_submission($row->id)) {
+            // The user is not currently enrolled so we cannot perform actions on them.
+            return '';
+        }
 
         $edit = '';
 
