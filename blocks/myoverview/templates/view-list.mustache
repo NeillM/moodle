@@ -29,7 +29,8 @@
                 "fullname": "course 3",
                 "hasprogress": true,
                 "progress": 10,
-                "coursecategory": "Miscellaneous"
+                "coursecategory": "Miscellaneous",
+                "visible": true
             }
         ]
     }
@@ -61,6 +62,11 @@
                         {{#str}}aria:coursename, core_course{{/str}}
                     </span>
                     {{{fullname}}}
+                    {{^visible}}
+                    <div class="d-flex" style="flex-flow:wrap;">
+                        <span class="tag tag-info">{{#str}} hiddenfromstudents {{/str}}</span>
+                    </div>
+                    {{/visible}}
                 </a>
             </div>
             {{#hasprogress}}
