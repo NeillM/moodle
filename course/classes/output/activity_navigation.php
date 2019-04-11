@@ -72,7 +72,7 @@ class activity_navigation implements renderable, templatable {
             }
 
             $attributes = [
-                'class' => 'btn btn-link',
+                'class' => '',
                 'id' => 'prev-activity-link',
                 'title' => $linkname,
             ];
@@ -88,7 +88,7 @@ class activity_navigation implements renderable, templatable {
             }
 
             $attributes = [
-                'class' => 'btn btn-link',
+                'class' => '',
                 'id' => 'next-activity-link',
                 'title' => $linkname,
             ];
