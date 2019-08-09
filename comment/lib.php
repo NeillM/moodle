@@ -590,7 +590,7 @@ class comment {
             $c->userid = $u->id;
 
             $candelete = $this->can_delete($c->id);
-            if (($USER->id == $u->id) || !empty($candelete)) {
+            if (($USER->id == $u->id && $this->can_post()) || !empty($candelete)) {
                 $c->delete = true;
             }
             $comments[] = $c;
@@ -809,7 +809,7 @@ class comment {
         if (!$comment = $DB->get_record('comments', array('id'=>$commentid))) {
             throw new comment_exception('dbupdatefailed');
         }
-        if (!($USER->id == $comment->userid || !empty($candelete))) {
+        if (!(($USER->id == $comment->userid && $this->can_post()) || !empty($candelete))) {
             throw new comment_exception('nopermissiontocomment');
         }
         $DB->delete_records('comments', array('id'=>$commentid));
