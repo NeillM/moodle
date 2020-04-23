@@ -1,6 +1,10 @@
 This files describes API changes in /comment/* ,
 information provided here is intended especially for developers.
 
+=== 3.9 ===
+  * comment::can_delete() now accepts a comment record or comment id. If used in loop you should pass the full record
+    to avoid excessive database calls.
+
 === 3.8 ===
   * External function get_comments now returns the total count of comments and the number of comments per page.
     It also has a new parameter to indicate the sorting direction (defaulted to DESC).

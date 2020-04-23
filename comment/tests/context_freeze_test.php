@@ -93,7 +93,7 @@ class comment_context_freeze_testcase extends advanced_testcase {
         $this->assertFalse($studentcomment->can_delete($newcomment->id));
         $this->assertFalse($studentcomment->can_post());
         $this->expectException(comment_exception::class);
-        $this->expectExceptionMessage(get_string('nopermissiontocomment', 'error'));
+        $this->expectExceptionMessage(get_string('nopermissiontodelentry', 'error'));
         core_comment_external::delete_comments([$newcomment->id]);
     }
 
