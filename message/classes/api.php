@@ -239,23 +239,59 @@ class api {
         // Let's get those non-contacts.
         // Because we can't achieve all the required visibility checks in SQL, we'll iterate through the non-contact records
         // and stop once we have enough matching the 'visible' criteria.
-        // TODO: MDL-63983 - Improve the performance of non-contact searches when site-wide messaging is disabled (default).
 
         // Use a local generator to achieve this iteration.
-        $getnoncontactusers = function ($limitfrom = 0, $limitnum = 0) use($fullname, $exclude, $params, $excludeparams) {
-            global $DB;
-            $sql = "SELECT u.*
-                  FROM {user} u
+        $getnoncontactusers = function ($limitfrom = 0, $limitnum = 0) use($fullname, $exclude, $params, $excludeparams, $userid, $selfconversation) {
+            global $DB, $CFG;
+
+            $joinenrolled = '';
+            $enrolled = '';
+            $unionself = '';
+            $enrolledparams = [];
+
+            // Since want to order a UNION we need to list out all the user fields individually so we can reference them correctly.
+            $select = "u.id, " . $DB->sql_fullname() ." AS sortingname, u.firstname, u.lastname, u.auth, u.confirmed,
+                        u.policyagreed, u.deleted, u.suspended, u.mnethostid, u.username, u.password, u.idnumber,
+                        u.email, u.emailstop, u.icq, u.skype, u.yahoo, u.aim, u.msn, u.phone1, u.phone2, u.institution,
+                        u.department, u.address, u.city, u.country, u.lang, u.calendartype, u.theme, u.timezone, u.firstaccess,
+                        u.lastaccess, u.lastlogin, u.currentlogin, u.lastip, u.secret, u.picture, u.url, u.description,
+                        u.descriptionformat, u.mailformat, u.maildigest, u.maildisplay, u.autosubscribe, u.trackforums,
+                        u.timecreated, u.timemodified, u.trustbitmask, u.imagealt, u.lastnamephonetic, u.firstnamephonetic,
+                        u.middlename, u.alternatename";
+
+            // When messageallusers is false valid non-contacts must be enrolled on one of the users courses.
+            if (empty($CFG->messagingallusers)) {
+                $joinenrolled = "JOIN {user_enrolments} ue ON ue.userid = u.id
+                                 JOIN {enrol} e ON e.id = ue.enrolid";
+                $enrolled = "AND e.courseid IN (
+                                SELECT e.courseid
+                                  FROM {user_enrolments} ue
+                                  JOIN {enrol} e ON e.id = ue.enrolid
+                                 WHERE ue.userid = :enroluserid
+                                )";
+
+                if ($selfconversation !== false) {
+                    // We must include the user themselves, when they have a self conversation, even if they are not
+                    // enrolled on any courses.
+                    $unionself = "UNION SELECT $select FROM {user} u
+                                         WHERE u.id = :self AND ". $DB->sql_like($fullname, ':selfsearch', false);
+                }
+                $enrolledparams = ['enroluserid' => $userid, 'self' => $userid, 'selfsearch' => $params['search']];
+            }
+
+            $sql = "SELECT DISTINCT
+                       $select
+                  FROM {user} u $joinenrolled
                  WHERE u.deleted = 0
                    AND u.confirmed = 1
                    AND " . $DB->sql_like($fullname, ':search', false) . "
-                   AND u.id $exclude
+                   AND u.id $exclude $enrolled
                    AND NOT EXISTS (SELECT mc.id
                                      FROM {message_contacts} mc
                                     WHERE (mc.userid = u.id AND mc.contactid = :userid1)
-                                       OR (mc.userid = :userid2 AND mc.contactid = u.id))
-              ORDER BY " . $DB->sql_fullname();
-            while ($records = $DB->get_records_sql($sql, $params + $excludeparams, $limitfrom, $limitnum)) {
+                                       OR (mc.userid = :userid2 AND mc.contactid = u.id)) $unionself
+              ORDER BY 2";
+            while ($records = $DB->get_records_sql($sql, $params + $excludeparams + $enrolledparams, $limitfrom, $limitnum)) {
                 yield $records;
                 $limitfrom += $limitnum;
             }
