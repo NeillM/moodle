@@ -842,4 +842,83 @@ class core_datalib_testcase extends advanced_testcase {
         $results = array_diff_key($results, $existingids);
         $this->assertEquals([$userids[1], $userids[3]], array_keys($results));
     }
+
+    /**
+     * Tests the get_courses_search function.
+     */
+    public function test_get_courses_search() {
+        $this->resetAfterTest();
+        $course1 = $this->getDataGenerator()->create_course([
+            'fullname' => 'This is test course 1',
+            'shortname' => 'C1',
+            'idnumber' => '',
+            'summary' => 'Some text goes here',
+        ]);
+        $course2 = $this->getDataGenerator()->create_course([
+            'fullname' => 'This is course 2',
+            'shortname' => 'Test',
+            'idnumber' => '',
+            'summary' => 'A fun summary',
+        ]);
+        $course3 = $this->getDataGenerator()->create_course([
+            'fullname' => 'This is course 3',
+            'shortname' => 'C3',
+            'idnumber' => 'TEST',
+            'summary' => 'Zebra\'s are here',
+        ]);
+        $course4 = $this->getDataGenerator()->create_course([
+            'fullname' => 'This is course 4',
+            'shortname' => 'C4',
+            'idnumber' => '',
+            'summary' => 'Test everything, for all',
+        ]);
+        // This course should not match the search criteria.
+        $this->getDataGenerator()->create_course([
+            'fullname' => 'This is course 5',
+            'shortname' => 'C5',
+            'idnumber' => '',
+            'summary' => 'Blah, blah, blah',
+        ]);
+
+        // First test existing usage, and that ordering works.
+        $resultcount = 0;
+        $results = get_courses_search(['test'], 'summary ASC', 0, 1, $resultcount, [], [], []);
+
+        $this->assertEquals(4, $resultcount);
+        $this->assertCount(1, $results);
+        $this->assertArrayHasKey($course2->id, $results);
+        $this->assertEquals($course2->id, $results[$course2->id]->id);
+        $this->assertEquals($course2->visible, $results[$course2->id]->visible);
+        $this->assertEquals($course2->category, $results[$course2->id]->category);
+        $this->assertEquals($course2->shortname, $results[$course2->id]->shortname);
+        $this->assertEquals($course2->fullname, $results[$course2->id]->fullname);
+        $this->assertEquals($course2->summary, $results[$course2->id]->summary);
+        $this->assertEquals($course2->idnumber, $results[$course2->id]->idnumber);
+
+        $results = get_courses_search(['test'], 'summary ASC', 2, 1, $resultcount, [], [], []);
+
+        $this->assertCount(1, $results);
+        $this->assertArrayHasKey($course4->id, $results);
+
+        // Test that the amount of data is limited when the returned fields are limited.
+        $results = get_courses_search(['test'], 'summary ASC', 1, 1, $resultcount, [], [], [], ['shortname']);
+
+        $this->assertEquals($course1->id, $results[$course1->id]->id);
+        $this->assertEquals($course1->visible, $results[$course1->id]->visible);
+        $this->assertEquals($course1->category, $results[$course1->id]->category);
+        $this->assertEquals($course1->shortname, $results[$course1->id]->shortname);
+        $this->assertFalse(isset($results[$course1->id]->fullname));
+        $this->assertFalse(isset($results[$course1->id]->summary));
+        $this->assertFalse(isset($results[$course1->id]->idnumber));
+
+        $results = get_courses_search(['test'], 'summary ASC', 3, 1, $resultcount, [], [], [], ['fullname']);
+
+        $this->assertEquals($course3->id, $results[$course3->id]->id);
+        $this->assertEquals($course3->visible, $results[$course3->id]->visible);
+        $this->assertEquals($course3->category, $results[$course3->id]->category);
+        $this->assertEquals($course3->fullname, $results[$course3->id]->fullname);
+        $this->assertFalse(isset($results[$course3->id]->shortname));
+        $this->assertFalse(isset($results[$course3->id]->summary));
+        $this->assertFalse(isset($results[$course3->id]->idnumber));
+    }
 }

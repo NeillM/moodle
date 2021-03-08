@@ -1550,6 +1550,47 @@ class core_course_category implements renderable, cacheable_object, IteratorAggr
     }
 
     /**
+     * Takes a list of course ids and converts them into the form required for course search results.
+     *
+     * @param array $ids
+     * @param array $options
+     * @param int $offset
+     * @param int $limit
+     * @return core_course_list_element[]
+     */
+    protected static function get_course_details_from_cached(array $ids, array $options, int $offset, ?int $limit) {
+        global $DB;
+
+        // We already cached last search result.
+        $ids = array_slice($ids, $offset, $limit);
+        $courses = array();
+        if (!empty($ids)) {
+            list($sql, $params) = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED, 'id');
+            $records = self::get_course_records("c.id ". $sql, $params, $options);
+            // Preload course contacts if necessary - saves DB queries later to do it for each course separately.
+            if (!empty($options['coursecontacts'])) {
+                self::preload_course_contacts($records);
+            }
+            // Preload custom fields if necessary - saves DB queries later to do it for each course separately.
+            if (!empty($options['customfields'])) {
+                self::preload_custom_fields($records);
+            }
+            // If option 'idonly' is specified no further action is needed, just return list of ids.
+            if (!empty($options['idonly'])) {
+                return array_keys($records);
+            }
+            // Prepare the list of core_course_list_element objects.
+            foreach ($ids as $id) {
+                // If a course is deleted after we got the cache entry it may not exist in the database anymore.
+                if (!empty($records[$id])) {
+                    $courses[$id] = new core_course_list_element($records[$id]);
+                }
+            }
+        }
+        return $courses;
+    }
+
+    /**
      * Searches courses
      *
      * List of found course ids is cached for 10 minutes. Cache may be purged prior
@@ -1582,32 +1623,7 @@ class core_course_category implements renderable, cacheable_object, IteratorAggr
         $ids = $coursecatcache->get($cachekey);
         if ($ids !== false) {
             // We already cached last search result.
-            $ids = array_slice($ids, $offset, $limit);
-            $courses = array();
-            if (!empty($ids)) {
-                list($sql, $params) = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED, 'id');
-                $records = self::get_course_records("c.id ". $sql, $params, $options);
-                // Preload course contacts if necessary - saves DB queries later to do it for each course separately.
-                if (!empty($options['coursecontacts'])) {
-                    self::preload_course_contacts($records);
-                }
-                // Preload custom fields if necessary - saves DB queries later to do it for each course separately.
-                if (!empty($options['customfields'])) {
-                    self::preload_custom_fields($records);
-                }
-                // If option 'idonly' is specified no further action is needed, just return list of ids.
-                if (!empty($options['idonly'])) {
-                    return array_keys($records);
-                }
-                // Prepare the list of core_course_list_element objects.
-                foreach ($ids as $id) {
-                    // If a course is deleted after we got the cache entry it may not exist in the database anymore.
-                    if (!empty($records[$id])) {
-                        $courses[$id] = new core_course_list_element($records[$id]);
-                    }
-                }
-            }
-            return $courses;
+            return static::get_course_details_from_cached($ids, $options, $offset, $limit);
         }
 
         $preloadcoursecontacts = !empty($options['coursecontacts']);
@@ -1627,11 +1643,7 @@ class core_course_category implements renderable, cacheable_object, IteratorAggr
                 $searchcondparams = ['p1' => 1];
             }
             $courselist = get_courses_search($searchterms, 'c.sortorder ASC', 0, 9999999, $totalcount,
-                $requiredcapabilities, $searchcond, $searchcondparams);
-            self::sort_records($courselist, $sortfields);
-            $coursecatcache->set($cachekey, array_keys($courselist));
-            $coursecatcache->set($cntcachekey, $totalcount);
-            $records = array_slice($courselist, $offset, $limit, true);
+                $requiredcapabilities, $searchcond, $searchcondparams, array_keys($sortfields));
         } else {
             if (!empty($search['blocklist'])) {
                 // Search courses that have block with specified id.
@@ -1672,7 +1684,13 @@ class core_course_category implements renderable, cacheable_object, IteratorAggr
                 debugging('No criteria is specified while searching courses', DEBUG_DEVELOPER);
                 return array();
             }
-            $courselist = self::get_course_records($where, $params, $options, true);
+
+            $fetchoptions = $options;
+            if (isset($fetchoptions['summary'])) {
+                // Never fetch the full summary here it can be too much data.
+                $fetchoptions['summary'] = false;
+            }
+            $courselist = self::get_course_records($where, $params, $fetchoptions, true);
             if (!empty($requiredcapabilities)) {
                 foreach ($courselist as $key => $course) {
                     context_helper::preload_from_record($course);
@@ -1682,30 +1700,14 @@ class core_course_category implements renderable, cacheable_object, IteratorAggr
                     }
                 }
             }
-            self::sort_records($courselist, $sortfields);
-            $coursecatcache->set($cachekey, array_keys($courselist));
-            $coursecatcache->set($cntcachekey, count($courselist));
-            $records = array_slice($courselist, $offset, $limit, true);
+            $totalcount = count($courselist);
         }
 
-        // Preload course contacts if necessary - saves DB queries later to do it for each course separately.
-        if (!empty($preloadcoursecontacts)) {
-            self::preload_course_contacts($records);
-        }
-        // Preload custom fields if necessary - saves DB queries later to do it for each course separately.
-        if (!empty($options['customfields'])) {
-            self::preload_custom_fields($records);
-        }
-        // If option 'idonly' is specified no further action is needed, just return list of ids.
-        if (!empty($options['idonly'])) {
-            return array_keys($records);
-        }
-        // Prepare the list of core_course_list_element objects.
-        $courses = array();
-        foreach ($records as $record) {
-            $courses[$record->id] = new core_course_list_element($record);
-        }
-        return $courses;
+        self::sort_records($courselist, $sortfields);
+        $ids = array_keys($courselist);
+        $coursecatcache->set($cachekey, $ids);
+        $coursecatcache->set($cntcachekey, $totalcount);
+        return static::get_course_details_from_cached($ids, $options, $offset, $limit);
     }
 
     /**

@@ -675,10 +675,13 @@ function get_courses($categoryid="all", $sort="c.sortorder ASC", $fields="c.*") 
  * @param array $requiredcapabilities Extra list of capabilities used to filter courses
  * @param array $searchcond additional search conditions, for example ['c.enablecompletion = :p1']
  * @param array $params named parameters for additional search conditions, for example ['p1' => 1]
+ * @param array $returnfields The fields from the course record to return.
+ *                            id, category and visible will always be included.
+ *                            If it is empty all fields will be returned.
  * @return stdClass[] {@link $COURSE} records
  */
 function get_courses_search($searchterms, $sort, $page, $recordsperpage, &$totalcount,
-                            $requiredcapabilities = array(), $searchcond = [], $params = []) {
+                            $requiredcapabilities = array(), $searchcond = [], $params = [], $returnfields = []) {
     global $CFG, $DB;
 
     if ($DB->sql_regex_supported()) {
@@ -747,7 +750,17 @@ function get_courses_search($searchterms, $sort, $page, $recordsperpage, &$total
     $ccjoin = "LEFT JOIN {context} ctx ON (ctx.instanceid = c.id AND ctx.contextlevel = :contextlevel)";
     $params['contextlevel'] = CONTEXT_COURSE;
 
-    $sql = "SELECT c.* $ccselect
+    if (!empty($returnfields)) {
+        $coursefields = ['c.id', 'c.visible', 'c.category'];
+        foreach ($returnfields as $field) {
+            $coursefields[] = 'c.' . $field;
+        }
+        $coursefields = implode(', ', array_unique($coursefields));
+    } else {
+        $coursefields = 'c.*';
+    }
+
+    $sql = "SELECT $coursefields $ccselect
               FROM {course} c
            $ccjoin
              WHERE $searchcond AND c.id <> ".SITEID."
