@@ -543,11 +543,26 @@ class core_course_external extends external_api {
     public static function get_courses_parameters() {
         return new external_function_parameters(
                 array('options' => new external_single_structure(
-                            array('ids' => new external_multiple_structure(
-                                        new external_value(PARAM_INT, 'Course id')
-                                        , 'List of course id. If empty return all courses
-                                            except front page course.',
-                                        VALUE_OPTIONAL)
+                            array(
+                                'ids' => new external_multiple_structure(
+                                    new external_value(PARAM_INT, 'Course id'),
+                                    'List of course id. If empty return all courses except front page course.',
+                                    VALUE_OPTIONAL
+                                ),
+                                'page' => new external_value(
+                                    PARAM_INT,
+                                    'The page of results to be returned (0 is the first page)',
+                                    VALUE_DEFAULT,
+                                    0,
+                                    NULL_NOT_ALLOWED
+                                ),
+                                'perpage' => new external_value(
+                                    PARAM_INT,
+                                    'The number of courses per page',
+                                    VALUE_DEFAULT,
+                                    0,
+                                    NULL_NOT_ALLOWED
+                                ),
                             ), 'options - operator OR is used', VALUE_DEFAULT, array())
                 )
         );
@@ -568,12 +583,15 @@ class core_course_external extends external_api {
         $params = self::validate_parameters(self::get_courses_parameters(),
                         array('options' => $options));
 
+        $limit = $params['options']['perpage'];
+        $offset = $params['options']['page'] * $params['options']['perpage'];
+
         //retrieve courses
         if (!array_key_exists('ids', $params['options'])
                 or empty($params['options']['ids'])) {
-            $courses = $DB->get_records('course');
+            $courses = $DB->get_records('course', null, '', '*', $offset, $limit);
         } else {
-            $courses = $DB->get_records_list('course', 'id', $params['options']['ids']);
+            $courses = $DB->get_records_list('course', 'id', $params['options']['ids'], '', '*', $offset, $limit);
         }
 
         //create return value

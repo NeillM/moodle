@@ -795,6 +795,29 @@ class core_course_externallib_testcase extends externallib_advanced_testcase {
         $courses = external_api::clean_returnvalue(core_course_external::get_courses_returns(), $courses);
 
         $this->assertEquals($DB->count_records('course'), count($courses));
+
+        // Test limiting the query.
+        $params = array(
+            'ids' => array($course1->id, $course2->id, $course4->id),
+            'perpage' => 1,
+        );
+        $courses = core_course_external::get_courses($params);
+
+        $this->assertCount(1, $courses);
+        $coursea = array_pop($courses);
+
+        $params = array(
+            'ids' => array($course1->id, $course2->id, $course4->id),
+            'perpage' => 1,
+            'page' => 1,
+        );
+        $courses = core_course_external::get_courses($params);
+
+        $this->assertCount(1, $courses);
+        $courseb = array_pop($courses);
+
+        // Check that we got different courses.
+        $this->assertNotEquals($coursea, $courseb);
     }
 
     /**
