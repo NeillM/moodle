@@ -269,7 +269,13 @@ class manager {
      * @return moodle_url
      */
     public static function get_course_search_url() {
-        if (self::is_global_search_enabled()) {
+        global $CFG;
+
+        // We should default to replacing course search unless the setting is explicitly disabled.
+        $replacecoursesearch = !isset($CFG->searchreplacecoursesearch)
+            || $CFG->searchreplacecoursesearch;
+
+        if ($replacecoursesearch && self::is_global_search_enabled()) {
             $searchurl = '/search/index.php';
         } else {
             $searchurl = '/course/search.php';

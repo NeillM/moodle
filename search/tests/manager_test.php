@@ -78,18 +78,39 @@ class search_manager_testcase extends advanced_testcase {
         $this->assertFalse(\core_search\manager::is_global_search_enabled());
     }
 
-    public function test_course_search_url() {
-
+    /**
+     * Tests that the correct search url is found.
+     *
+     * @param bool|null $enableglobalsearch The setting for the enabling global search setting (or null for the default)
+     * @param bool|null $replacecoursesearch The setting for the replace course search setting (or null for the default)
+     * @param string $excpecteduri The expected uri for the search page.
+     * @dataProvider data_course_search_url
+     */
+    public function test_course_search_url(?bool $enableglobalsearch, ?bool $replacecoursesearch, string $excpecteduri) {
         $this->resetAfterTest();
+        if (!is_null($enableglobalsearch)) {
+            set_config('enableglobalsearch', $enableglobalsearch);
+        }
+        if (!is_null($replacecoursesearch)) {
+            set_config('searchreplacecoursesearch', $replacecoursesearch);
+        }
+        $this->assertEquals(new moodle_url($excpecteduri), \core_search\manager::get_course_search_url());
+    }
 
-        // URL is course/search.php by default.
-        $this->assertEquals(new moodle_url("/course/search.php"), \core_search\manager::get_course_search_url());
-
-        set_config('enableglobalsearch', true);
-        $this->assertEquals(new moodle_url("/search/index.php"), \core_search\manager::get_course_search_url());
-
-        set_config('enableglobalsearch', false);
-        $this->assertEquals(new moodle_url("/course/search.php"), \core_search\manager::get_course_search_url());
+    /**
+     * Data provider for test_course_search_url.
+     *
+     * @return array[]
+     */
+    public function data_course_search_url() {
+        return [
+            'Default' => [null, null, '/course/search.php'],
+            'Global search off' => [false, null, '/course/search.php'],
+            'Global search on' => [true, null, '/search/index.php'],
+            'Global search on, replace on' => [true, true, '/search/index.php'],
+            'Global search on, replace off' => [true, false, '/course/search.php'],
+            'Global search off, replace on' => [false, true, '/course/search.php'],
+        ];
     }
 
     public function test_search_areas() {
