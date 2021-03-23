@@ -78,18 +78,53 @@ class search_manager_testcase extends advanced_testcase {
         $this->assertFalse(\core_search\manager::is_global_search_enabled());
     }
 
-    public function test_course_search_url() {
-
+    /**
+     * Tests the course search url is correct.
+     *
+     * @param bool|null $gsenabled Enable global searchE (null to leave as the default).
+     * @param bool|null $allcourses Enable searching all courses (null to leave as the default).
+     * @param bool|null $enablearea Enable the course search area (null to leave as the default).
+     * @param string $expected The expected course search url.
+     * @dataProvider data_course_search_url
+     */
+    public function test_course_search_url(?bool $gsenabled, ?bool $allcourses, ?bool $enablearea, string $expected) {
         $this->resetAfterTest();
 
-        // URL is course/search.php by default.
-        $this->assertEquals(new moodle_url("/course/search.php"), \core_search\manager::get_course_search_url());
+        if (!is_null($gsenabled)) {
+            set_config('enableglobalsearch', $gsenabled);
+        }
 
-        set_config('enableglobalsearch', true);
-        $this->assertEquals(new moodle_url("/search/index.php"), \core_search\manager::get_course_search_url());
+        if (!is_null($allcourses)) {
+            set_config('searchincludeallcourses', $allcourses);
+        }
 
-        set_config('enableglobalsearch', false);
-        $this->assertEquals(new moodle_url("/course/search.php"), \core_search\manager::get_course_search_url());
+        if (!is_null($enablearea)) {
+            // Setup the course search area.
+            $areaid = \core_search\manager::generate_areaid('core_course', 'course');
+            $area = \core_search\manager::get_search_area($areaid);
+            $area->set_enabled($enablearea);
+        }
+
+        $this->assertEquals(new moodle_url($expected), \core_search\manager::get_course_search_url());
+    }
+
+    /**
+     * Data for the test_course_search_url test.
+     *
+     * @return array[]
+     */
+    public function data_course_search_url(): array {
+        return [
+            'defaults' => [null, null, null, '/course/search.php'],
+            'enabled' => [true, true, true, '/search/index.php'],
+            'no all courses, no search area' => [true, false, false, '/course/search.php'],
+            'no search area' => [true, true, false, '/course/search.php'],
+            'no all courses' => [true, false, true, '/course/search.php'],
+            'disabled' => [false, false, false, '/course/search.php'],
+            'no global search' => [false, true, false, '/course/search.php'],
+            'no global search, no all courses' => [false, false, true, '/course/search.php'],
+            'no global search, no search area' => [false, true, false, '/course/search.php'],
+        ];
     }
 
     public function test_search_areas() {
