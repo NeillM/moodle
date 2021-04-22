@@ -2389,7 +2389,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
         // No feedback should be available because the grade is hidden.
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertDoesNotMatchRegularExpression('/Feedback/', $output, 'Do not show feedback if the grade is hidden in the gradebook');
+        $this->assertNotRegexp('/Feedback/', $output, 'Do not show feedback if the grade is hidden in the gradebook');
 
         // Show the feedback again - it should still be visible even in a frozen context.
         $this->setUser($teacher);
@@ -2397,7 +2397,7 @@ class mod_assign_locallib_testcase extends advanced_testcase {
 
         $this->setUser($student);
         $output = $assign->view_student_summary($student, true);
-        $this->assertMatchesRegularExpression('/Feedback/', $output, 'Show feedback if there is a grade');
+        $this->assertRegexp('/Feedback/', $output, 'Show feedback if there is a grade');
     }
 
     public function test_show_student_summary_with_feedback() {
