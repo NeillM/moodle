@@ -236,6 +236,11 @@ class api {
             }
         }
 
+        // We need to get all the user details for a fullname in the visibility checks.
+        $useridentity = \core_user\fields::for_name()
+            // Required by the visibility checks.
+            ->including('deleted');
+
         // Let's get those non-contacts.
         // Because we can't achieve all the required visibility checks in SQL, we'll iterate through the non-contact records
         // and stop once we have enough matching the 'visible' criteria.
@@ -247,7 +252,8 @@ class api {
             $params,
             $excludeparams,
             $userid,
-            $selfconversation
+            $selfconversation,
+            $useridentity
         ) {
             global $DB, $CFG;
 
@@ -258,8 +264,9 @@ class api {
 
             // Since we want to order a UNION we need to list out all the user fields individually this will
             // allow us to reference the fullname correctly.
-            $userfields = implode(', u.', get_user_fieldnames());
-            $select = "u.id, " . $DB->sql_fullname() ." AS sortingname, u." . $userfields;
+            $userfields = $useridentity->get_sql('u', false, '', '', false)->selects;;
+
+            $select = "u.id, " . $DB->sql_fullname() ." AS sortingname, " . $userfields;
 
             // When messageallusers is false valid non-contacts must be enrolled on one of the users courses.
             if (empty($CFG->messagingallusers)) {
@@ -315,11 +322,14 @@ class api {
         $returnedusers = [];
         foreach ($getnoncontactusers(0, $batchlimit) as $users) {
             foreach ($users as $id => $user) {
+                // Only fields that are also part of user_get_default_fields() are valid when passed into.
+                $fields = array_intersect($useridentity->get_required_fields(), user_get_default_fields());
+
                 // User visibility checks: only return users who are visible to the user performing the search.
                 // Which visibility check to use depends on the 'messagingallusers' (site wide messaging) setting:
                 // - If enabled, return matched users whose profiles are visible to the current user anywhere (site or course).
                 // - If disabled, only return matched users whose course profiles are visible to the current user.
-                $userdetails = \core_message\helper::search_get_user_details($user);
+                $userdetails = \core_message\helper::search_get_user_details($user, $fields);
 
                 // Return the user only if the searched field is returned.
                 // Otherwise it means that the $USER was not allowed to search the returned user.
