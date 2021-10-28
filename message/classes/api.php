@@ -275,24 +275,27 @@ class api {
                 if ($selfconversation !== false) {
                     // We must include the user themselves, when they have a self conversation, even if they are not
                     // enrolled on any courses.
-                    $unionself = "UNION SELECT $select FROM {user} u
+                    $unionself = "UNION SELECT u.id FROM {user} u
                                          WHERE u.id = :self AND ". $DB->sql_like($fullname, ':selfsearch', false);
                 }
                 $enrolledparams = ['enroluserid' => $userid, 'self' => $userid, 'selfsearch' => $params['search']];
             }
 
-            $sql = "SELECT DISTINCT
-                       $select
-                  FROM {user} u $joinenrolled
-                 WHERE u.deleted = 0
-                   AND u.confirmed = 1
-                   AND " . $DB->sql_like($fullname, ':search', false) . "
-                   AND u.id $exclude $enrolled
-                   AND NOT EXISTS (SELECT mc.id
-                                     FROM {message_contacts} mc
-                                    WHERE (mc.userid = u.id AND mc.contactid = :userid1)
-                                       OR (mc.userid = :userid2 AND mc.contactid = u.id)) $unionself
-              ORDER BY 2";
+            $sql = "SELECT $select
+                      FROM (
+                        SELECT DISTINCT u.id
+                          FROM {user} u $joinenrolled
+                         WHERE u.deleted = 0
+                           AND u.confirmed = 1
+                           AND " . $DB->sql_like($fullname, ':search', false) . "
+                           AND u.id $exclude $enrolled
+                           AND NOT EXISTS (SELECT mc.id
+                                             FROM {message_contacts} mc
+                                            WHERE (mc.userid = u.id AND mc.contactid = :userid1)
+                                               OR (mc.userid = :userid2 AND mc.contactid = u.id)) $unionself
+                         ) targetedusers
+                      JOIN {user} u ON u.id = targetedusers.id
+                  ORDER BY 2";
             while ($records = $DB->get_records_sql($sql, $params + $excludeparams + $enrolledparams, $limitfrom, $limitnum)) {
                 yield $records;
                 $limitfrom += $limitnum;
