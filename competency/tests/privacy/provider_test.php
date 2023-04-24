@@ -2598,7 +2598,7 @@ class provider_test extends provider_testcase {
         $expectedids = array_unique(array_map(function($item) {
             return $item instanceof \context ? $item->id : $id;
         }, $expectedcontextsorids));
-        $this->assert_array_match($contextids, $expectedids);
+        $this->assert_array_match($expectedids, $contextids);
     }
 
     /**
